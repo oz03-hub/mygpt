@@ -1,0 +1,7 @@
+openai
+dotenv
+tiktoken
+rich
+signal
+os
+sys
