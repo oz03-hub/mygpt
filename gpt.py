@@ -9,6 +9,18 @@ import sys
 load_dotenv()
 TOKEN_LIMIT = int(os.environ["TOKEN_LIMIT"])
 
+def print_help():
+    help_menu = [
+        {"command": "!help", "description": "help menu"},
+        {"command": "!new", "description": "reset chat instance"},
+        {"command": "!pre", "description": "reload last prompt"},
+        {"command": "!extract \[filename]", "description": "reads prompt from file"}
+    ]
+
+    for item in help_menu:
+        print(f"[bold cyan]{item['command']}:[/bold cyan] [italic yellow]{item['description']}[/italic yellow]")
+
+
 def signal_handler(sig, frame):
     print('\nExiting gracefully.')
     sys.exit(0)
@@ -72,30 +84,70 @@ def trim_messages(messages, limit=(TOKEN_LIMIT/3)):
     
     return messages
 
+def parse_command(input_str: str):
+    commands = []
+    prompt = ""
+
+    words = input_str.split()
+    for i, word in enumerate(words):
+        if word.startswith('!'):
+            commands.append(word[1:])
+        else:
+            prompt = ' '.join(words[i:])
+            prompt = prompt.strip()
+            break
+
+    return commands, prompt
+
+def extract_prompt_from_file(file_name):
+    try:
+        with open(file_name, 'r') as file:
+            file_content = file.read()
+            return file_content
+    except FileNotFoundError:
+        print("[bold red]File {} not found...[/bold red]".format(file_name))
+        return None
+    except Exception as e:
+        print("[bold red]An error occurred: {}[/bold red]".format(e))
+        return None
+    
 if __name__ == "__main__":
     client = OpenAI()
     messages = []
-    tokenLimit = TOKEN_LIMIT
+    token_limit = TOKEN_LIMIT
 
-    previousMessage = None
+    previous_message = None
 
     while True:
-        userIn = input('User: ')
-        if userIn == '\x1b[A':
-            if previousMessage == None:
-                print("[bold red]No previous prompt...[/bold red]")
-                continue
-            
-            userIn = previousMessage
-            print("[bold blue]RE: {}...[/bold blue]".format(userIn[:20]))
+        user_input = input('User: ')
+        commands, prompt = parse_command(user_input)
+        continue_processing = True
 
-        previousMessage = userIn
-        messages.append({"role": "user", "content": userIn})
+        for command in commands:
+            if command == 'help':
+                print_help()
+                continue_processing = False
+                break
+            elif command == 'new':
+                messages = []
+            elif command == 'pre':
+                prompt = previous_message
+            elif command == 'extract':
+                prompt = extract_prompt_from_file(prompt)
+                if prompt == None:
+                    continue_processing = False
+
+        if not continue_processing:
+            continue
+
+        print("[italic yellow]CMD: {}, P: {}...[/italic yellow]".format(commands, prompt[:10]))
+        previous_message = prompt
+        messages.append({"role": "user", "content": prompt})
         print("[bold blue]Processing...[/bold blue]")
         response = getCompletion(messages, client)
         messages.append({"role": response.role, "content": response.content})
         print('Assistant: ', end='')
         print(messages[-1]['content'])
 
-        if num_tokens_from_messages(messages) > tokenLimit:
+        if num_tokens_from_messages(messages) > token_limit:
             messages = trim_messages(messages)
