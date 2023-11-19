@@ -38,6 +38,8 @@ Get you own OpenAI api-key from [OpenAI](openai.com)
    pip install -r requirements.txt
    ```
 
+4. Make a `user_files` in the same directory to store your prompt files (highly recommended)
+
 ## Usage
 
 1. Open your terminal and navigate to the project directory.
@@ -52,7 +54,16 @@ Get you own OpenAI api-key from [OpenAI](openai.com)
 
 4. Begin typing your messages and press Enter to send them.
 
-5. To reload your last message, press the up arrow key and make necessary edits.
+5. Utilize commands at your disposal to boost your interaction.
+
+## Commands
+
+```
+!help: help menu
+!new: reset chat instance
+!pre: reload last prompt
+!extract [filename]: reads prompt from file, list this command in last with your prompt being the file path
+```
 
 ## Examples
 
@@ -64,12 +75,38 @@ Here are some examples of how to use MyGPT:
   MyGPT: Hello! How can I assist you today?
   ```
 
-- Reload and edit the last message:
+- Reset instance:
   ```
-  User: {up arrow key}
-  User: Hi there, I wanted to ask...
-  MyGPT: Hello! How can I assist you today?
+  // Previous conversation
+  User: !new how to say good morning in Spanish?
+  MyGPT: Buenos Dias!
   ```
+
+- Reload last prompt:
+   ```
+   User: !pre
+   MyGPT: Good morning in Spanish would be Buenos Dias!
+   ```
+
+- Extract prompt from a file:
+   ```
+   User: !extract /path/to/your/file.txt
+   MyGPT: To write a python function that calculates...
+   ```
+
+   TIP: You can still reload the file prompt
+
+   ```
+   User: !pre
+   MyGPT: Let's see how we can develop  a python function that...
+   ```
+
+- You can chain some commands:
+   ```
+   // Building from spanish examples
+   User: !new !pre
+   MyGPT: Spanish good morning is Buenos Dias!
+   ```
 
 ## Contributing
 
