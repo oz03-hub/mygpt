@@ -7,6 +7,8 @@ import signal
 import os
 import sys
 
+from gpt_functions import write_to_file
+
 load_dotenv()
 TOKEN_LIMIT = int(os.environ["TOKEN_LIMIT"])
 STREAM_RESPONSE = True
@@ -29,7 +31,7 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-def getCompletion(messages, client, model='gpt-3.5-turbo-0613'):
+def getCompletion(messages, client, model='gpt-3.5-turbo-1106'):
     response = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -38,7 +40,7 @@ def getCompletion(messages, client, model='gpt-3.5-turbo-0613'):
 
     return response
 
-def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
+def num_tokens_from_messages(messages, model="gpt-3.5-turbo-1106"):
     """Return the number of tokens used by a list of messages."""
     try:
         encoding = tiktoken.encoding_for_model(model)
