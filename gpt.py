@@ -2,12 +2,14 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import tiktoken
 from rich import print
+import time
 import signal
 import os
 import sys
 
 load_dotenv()
 TOKEN_LIMIT = int(os.environ["TOKEN_LIMIT"])
+STREAM_RESPONSE = True
 
 def print_help():
     help_menu = [
@@ -30,10 +32,11 @@ signal.signal(signal.SIGINT, signal_handler)
 def getCompletion(messages, client, model='gpt-3.5-turbo-0613'):
     response = client.chat.completions.create(
         model=model,
-        messages=messages
+        messages=messages,
+        stream=STREAM_RESPONSE
     )
 
-    return response.choices[0].message
+    return response
 
 def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
     """Return the number of tokens used by a list of messages."""
@@ -144,10 +147,23 @@ if __name__ == "__main__":
         previous_message = prompt
         messages.append({"role": "user", "content": prompt})
         print("[bold blue]Processing...[/bold blue]")
-        response = getCompletion(messages, client)
-        messages.append({"role": response.role, "content": response.content})
         print('Assistant: ', end='')
-        print(messages[-1]['content'])
+        response = getCompletion(messages, client)
 
+        content = ''
+        if STREAM_RESPONSE:
+            for chunk in response:
+                chunk_content = chunk.choices[0].delta.content or ''
+                content += chunk_content
+                for c in chunk_content:
+                    print(c, end='')
+                    time.sleep(0.02)
+            print(flush=True)
+        else:
+            content = response.choices[0].message.content
+            print(content, flush=True)
+
+        messages.append({"role": "assistant", "content": content})
+    
         if num_tokens_from_messages(messages) > token_limit:
             messages = trim_messages(messages)
