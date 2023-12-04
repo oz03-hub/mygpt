@@ -11,7 +11,9 @@ from gpt_functions import write_to_file
 
 load_dotenv()
 TOKEN_LIMIT = int(os.environ["TOKEN_LIMIT"])
-STREAM_RESPONSE = True
+MODEL_TYPE = str(os.environ["MODEL_TYPE"])
+STREAM_TYPE = int(os.environ["STREAM_TYPE"])
+STREAM_ALLOWED = STREAM_TYPE != 0
 
 def print_help():
     help_menu = [
@@ -31,16 +33,16 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-def getCompletion(messages, client, model='gpt-3.5-turbo-1106'):
+def getCompletion(messages, client, model=MODEL_TYPE):
     response = client.chat.completions.create(
         model=model,
         messages=messages,
-        stream=STREAM_RESPONSE
+        stream=STREAM_ALLOWED
     )
 
     return response
 
-def num_tokens_from_messages(messages, model="gpt-3.5-turbo-1106"):
+def num_tokens_from_messages(messages, model=MODEL_TYPE):
     """Return the number of tokens used by a list of messages."""
     try:
         encoding = tiktoken.encoding_for_model(model)
@@ -116,6 +118,36 @@ def extract_prompt_from_file(file_name):
         print("[bold red]An error occurred: {}[/bold red]".format(e))
         return None
     
+def output_by_stream_type(response, type):
+    if type == 1: # character
+        def char_routine(content: str):
+            for c in content:
+                print(c, end='')
+                time.sleep(0.01)
+
+        callback_fn = char_routine
+    else: # 2, chunk
+        def chunk_routine(content: str):
+            print(content, end='')
+            time.sleep(0.01)
+        
+        callback_fn = chunk_routine
+
+    content = ''
+    for chunk in response:
+        chunk_content = chunk.choices[0].delta.content or ''
+        content += chunk_content
+        callback_fn(chunk_content)
+    print(flush=True)
+
+    return content
+
+def output_by_no_stream(response):
+    content = response.choices[0].message.content
+    print(content, flush=True)
+
+    return content
+
 if __name__ == "__main__":
     client = OpenAI()
     messages = []
@@ -152,18 +184,10 @@ if __name__ == "__main__":
         print('Assistant: ', end='')
         response = getCompletion(messages, client)
 
-        content = ''
-        if STREAM_RESPONSE:
-            for chunk in response:
-                chunk_content = chunk.choices[0].delta.content or ''
-                content += chunk_content
-                for c in chunk_content:
-                    print(c, end='')
-                    time.sleep(0.02)
-            print(flush=True)
+        if STREAM_ALLOWED:
+            content = output_by_stream_type(response, STREAM_TYPE)
         else:
-            content = response.choices[0].message.content
-            print(content, flush=True)
+            content = output_by_no_stream(response)
 
         messages.append({"role": "assistant", "content": content})
     
