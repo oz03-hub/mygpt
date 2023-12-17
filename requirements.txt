@@ -5,3 +5,7 @@ rich
 signal
 os
 sys
+scipy
+tenacity
+termcolor
+requests
