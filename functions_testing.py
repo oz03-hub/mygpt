@@ -10,8 +10,7 @@ import json
 import requests
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 from termcolor import colored
-
-from gpt_functions import write_to_file
+from gpt_functions import write_to_file, TOOLS
 
 load_dotenv()
 OPENAI_API_KEY = str(os.environ["OPENAI_API_KEY"])
@@ -22,7 +21,7 @@ STREAM_ALLOWED = STREAM_TYPE != 0
 
 ### Under Construction ###
 @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(3))
-def chat_completion_request(messages, tools=None, tool_choice=None, model=MODEL_TYPE):
+def chat_completion_request(messages, tools=TOOLS, tool_choice=None, model=MODEL_TYPE):
     headers = {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + OPENAI_API_KEY,
@@ -64,40 +63,41 @@ def pretty_print_conversation(messages):
         elif message["role"] == "tool":
             print(colored(f"function ({message['name']}): {message['content']}\n", role_to_color[message["role"]]))
 
-def get_current_weather(args):
-    print(args)
-
 tools = [
     {
         "type": "function",
         "function": {
-            "name": "get_current_weather",
-            "description": "Get the current weather",
+            "name": "write_to_file",
+            "description": "Writes to a file on the user's system",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "location": {
+                    "filename": {
                         "type": "string",
-                        "description": "The city and state, e.g. San Francisco, CA",
+                        "description": "The filename.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The string content to write to file."
                     }
                 },
-                "required": ["location"],
+                "required": ["filename", "content"],
             },
         }
     }
 ]
 
 def execute_function_call(message):
-    if message["tool_calls"][0]["function"]["name"] == "get_current_weather":
-        args = json.loads(message["tool_calls"][0]["function"]["arguments"])["location"]
-        results = get_current_weather(args)
+    if message["tool_calls"][0]["function"]["name"] == "write_to_file":
+        args = json.loads(message["tool_calls"][0]["function"]["arguments"])
+        results = write_to_file(args["filename"], args["content"])
     else:
         results = f"Error: function {message['tool_calls'][0]['function']['name']} does not exist"
     return results
 
 messages = []
 messages.append({"role": "system", "content": "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous."})
-messages.append({"role": "user", "content": "Hi how is the weather in Ankara, Turkey in celsius"})
+messages.append({"role": "user", "content": "Hello, write a hello world code in javascript to file '/Users/ozelyilmazel/mygpt/test.txt'"})
 chat_response = chat_completion_request(messages, tools)
 chat_response = chat_completion_request(messages, tools)
 assistant_message = chat_response.json()["choices"][0]["message"]

@@ -11,7 +11,7 @@ import requests
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 from termcolor import colored
 
-from gpt_functions import write_to_file
+from gpt_functions import write_to_file, print_help, TOOLS
 
 load_dotenv()
 OPENAI_API_KEY = str(os.environ["OPENAI_API_KEY"])
@@ -20,16 +20,22 @@ MODEL_TYPE = str(os.environ["MODEL_TYPE"])
 STREAM_TYPE = int(os.environ["STREAM_TYPE"])
 STREAM_ALLOWED = STREAM_TYPE != 0
 
+def signal_handler(sig, frame):
+    print('\nExiting gracefully.')
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
 ### Export to functions_testing.py
 ### Import from functions_testing.py
 ### Under Construction ###
 @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(3))
-def chat_completion_request(messages, tools=None, tool_choice=None, model=MODEL_TYPE):
+def chat_completion_request(messages, tools=TOOLS, tool_choice=None, model=MODEL_TYPE):
     headers = {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + OPENAI_API_KEY,
     }
-    json_data = {"model": model, "messages": messages}
+    json_data = {"model": model, "messages": messages, "stream": STREAM_ALLOWED}
     if tools is not None:
         json_data.update({"tools": tools})
     if tool_choice is not None:
@@ -40,60 +46,22 @@ def chat_completion_request(messages, tools=None, tool_choice=None, model=MODEL_
             headers=headers,
             json=json_data,
         )
-        return response
+        return response.json()
     except Exception as e:
         print("Unable to generate ChatCompletion response")
         print(f"Exception: {e}")
         return e
 
-def pretty_print_conversation(messages):
-    role_to_color = {
-        "system": "red",
-        "user": "green",
-        "assistant": "blue",
-        "tool": "magenta",
-    }
-    
-    for message in messages:
-        if message["role"] == "system":
-            print(colored(f"system: {message['content']}\n", role_to_color[message["role"]]))
-        elif message["role"] == "user":
-            print(colored(f"user: {message['content']}\n", role_to_color[message["role"]]))
-        elif message["role"] == "assistant" and message.get("function_call"):
-            print(colored(f"assistant: {message['function_call']}\n", role_to_color[message["role"]]))
-        elif message["role"] == "assistant" and not message.get("function_call"):
-            print(colored(f"assistant: {message['content']}\n", role_to_color[message["role"]]))
-        elif message["role"] == "tool":
-            print(colored(f"function ({message['name']}): {message['content']}\n", role_to_color[message["role"]]))
+# def getCompletion(messages, client, model=MODEL_TYPE):
+#     response = client.chat.completions.create(
+#         model=model,
+#         messages=messages,
+#         stream=STREAM_ALLOWED
+#     )
+
+#     return response
 
 ### Under Construction ###
-
-def print_help():
-    help_menu = [
-        {"command": "!help", "description": "help menu"},
-        {"command": "!new", "description": "reset chat instance"},
-        {"command": "!pre", "description": "reload last prompt"},
-        {"command": "!extract \[filename]", "description": "reads prompt from file"}
-    ]
-
-    for item in help_menu:
-        print(f"[bold cyan]{item['command']}:[/bold cyan] [italic yellow]{item['description']}[/italic yellow]")
-
-
-def signal_handler(sig, frame):
-    print('\nExiting gracefully.')
-    sys.exit(0)
-
-signal.signal(signal.SIGINT, signal_handler)
-
-def getCompletion(messages, client, model=MODEL_TYPE):
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=STREAM_ALLOWED
-    )
-
-    return response
 
 def num_tokens_from_messages(messages, model=MODEL_TYPE):
     """Return the number of tokens used by a list of messages."""
@@ -196,7 +164,7 @@ def output_by_stream_type(response, type):
     return content
 
 def output_by_no_stream(response):
-    content = response.choices[0].message.content
+    content = response["choices"][0]["message"]["content"]
     print(content, flush=True)
 
     return content
@@ -235,7 +203,7 @@ if __name__ == "__main__":
         messages.append({"role": "user", "content": prompt})
         print("[bold blue]Processing...[/bold blue]")
         print('Assistant: ', end='')
-        response = getCompletion(messages, client)
+        response = chat_completion_request(messages=messages, tools=TOOLS)
 
         if STREAM_ALLOWED:
             content = output_by_stream_type(response, STREAM_TYPE)
